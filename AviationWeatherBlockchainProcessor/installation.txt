@@ -1,0 +1,135 @@
+The following are instructions on how to set up and configure the Aviation Weather Blockchain Processor.
+
+Suggested directory structure for installation
+awbc/bin
+awbc/lib
+awbc/config
+awbc/logs
+
+1. Install multichain 2.0 or later
+https://www.multichain.com/download-install/
+
+
+2. Create the metar chain 
+multichain-util create metar
+
+
+3. Modify the following parameters 
+vi ~/.multichain/metar/params.dat
+
+Update the following properties 
+
+anyone-can-connect = true
+anyone-can-receive = true
+
+The following value defines how many transactions to place in a block. You
+may leave this value as is, but we recommend to set this value to 100
+to minimize space consumption.
+
+max-std-op-returns-count = 100
+:wq!
+Take note of the following property. You will need it to configure the processor. You do not 
+necessarily need to change it to this port number.
+default-network-port = 2653  
+default-rpc-port = 2652
+             
+
+4. RPC credentials
+The Aviation Weather Blockchain Processor communicates with Multichain using the 
+its JSON RPC server. The username and password must be set in the processor's
+configuratiols -ln file. We recommend you change these value.
+
+vi ~/.multichain/metar/multichain.conf
+
+rpcuser=set-to-any-username-you-want
+rpcpassword=set-to-hard-to-guess-password
+
+5. start multichain-util
+
+multichaind metar -daemon
+
+The RPC port used is shown on start up and must match default-rpc-port set in step 3
+
+FYI. The chain can be stopped by executing "multichain-cli metar stop" but the chain must be
+running to complete these instructions. 
+
+6. Create streams  
+Execute the following script. The script may be obtained from the jar file or from the source code.
+
+createStream.sh
+
+Note: Confirm the files have the required execute permissions.Be sure to review the output for any failures and/or query the metar block chain to ensure all streams where created.
+
+In linux you can confirm the correct number of stream where created by executing the following. Note this number will include the root stream, so it should be one more than expected
+multichain-cli metar liststreams | grep name -wc
+
+
+7. If you plan to query the chain from the same node that you are publishing to
+then run this script. Otherwise set up a peer node and run this script on the peer node. 
+The script may be obtained from the jar file or from the source code.
+
+subscribeStream.sh
+
+Note: Confirm the files have the required execute permission. Be sure to review the output for any failures.
+
+8. Copy the Aviation Weather Blockchain Processor jar file to a location of your choosing. Note: Confirm the jar file has execute permission.
+
+9. Configure the Aviation Weather Blockchain Processor configuration file
+
+copy awbcProcessorConfig.properties to a location of your choosing. The file may be obtained 
+from the jar file or from the source code. Update the following fields.
+
+Note: Confirm the files have the required permissions for read and write.
+
+
+multichain.url: Change the port number to match what was set in default-rpc-port step on step 3
+multichain.username: Change to the value set in rpcuser on step 4
+multichain.password: Change to the value set in rpcpassword on step 4
+multichain.max-std-op-returns-count: Change to the value set in max-std-op-returns-count on step 3
+multichain.fromAddress: Update with the value of the admin address. This address can be found by executing multichain-cli metar listaddresses
+
+metar.countries=The country codes that you wish to publish on. Every country code listed here must have a stream created in step 6
+logging.file=If you leave this property commented out then the default logging properties file will be used. Otherwise you can set up logging configurations as your prefer. More on this later.
+metar.url=There is no need to change this unless aviationweather.gov changes
+metar.fields=Do not change this unless you make changes to the source and you need additional fields, Currently all fields are being extracted.
+metar.root=Do not change this unless aviationweather.gov changes the XML schema
+
+10. Configure logging properties
+
+This step is optional. If you are happy with the logging behavior of the application then you may let the application 
+use the logging properties bundled in the jar file. However. if you want to customize logging behavior then you can override
+it by creating your own logging properties file and configure the application to use it. This step describes that
+procedure.
+
+Copy awbcProcessorLogging.properties from the jar file or source and place it in a location of your choosing.
+
+edit the awbcProcessorConfig.properties file created in step 9 and uncomment and update the logging.file property
+with the location and file name of your logging property file. This is especially useful to control the location 
+of the logging output and the amount of logging information to be retained before its purged 
+
+You may want to change the location of the placement of the logging output by prefixing directory to the name of the logging file output
+java.util.logging.FileHandler.pattern=/path/to/aviation-weather-%g.log
+
+11. Schedule the Aviation Weather Blockchain Processor to run hourly. We recommend
+that you do not run any earlier that 5 minutes after the hour to allow for the
+metars to be made available.
+
+5 * * * * java -jar /path/to/aviation-weather.jar -config=/path/to/awbcProcessorConfig.properties
+
+
+Other comments
+- Copying files from windows machines may add special characters to the end of lines in text files. If so, you
+may need to strip off these characters for the application to work.
+
+Common Problems
+- Logging file in incorrect location or not exits may be due to confg location of logging file in step 10
+_ logging config file configured but does not exist in configured location
+- RPC username and password not correct
+- Multichain from address not configured correctly in awbcProcessorConfig.properties
+- RPC port number incorrect
+- max-std-op-returns-count not set to match multichain configuration. One symptom of this situation is where the log is
+reporting a small number of successes, and careful inspection of the debug.log will mention the std-op-returns-count in
+messages near the reported failure. Multichain may need to be started in debug mode to see this level of messaging.
+The max-std-op-returns-count must be less than or equal to the value set in the chain.
+After stopping the chain, the chain can be started in debug mode as follows `... multichaind metar -daemon -debug
+- Multichain 2.0 or later not installed
